@@ -24,8 +24,10 @@ public class BasicThread extends Thread {
 			localLock.l_wait();
 		}
 	}
-	public synchronized void l_notify(){
+	public void l_notify(){
+		//System.out.println("Notify out");
 		synchronized(localLock){
+			//System.out.println("Notify in");
 			localLock.l_notify();
 		}
 	}
@@ -40,5 +42,9 @@ public class BasicThread extends Thread {
 	}
 	public void setThreadId(String threadId) {
 		this.threadId = threadId;
+	}
+	public CustomLock getLocalLock()
+	{
+		return localLock;
 	}
 }

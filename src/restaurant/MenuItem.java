@@ -54,10 +54,11 @@ public class MenuItem{
 		setNumberOfMachinesAvailable(getNumberOfMachinesAvailable() -1);
 		return getTimeRequiredForCompletion();
 	}
-	public synchronized void releaseMachine(){
+	public void releaseMachine(){
+		//System.out.println("Releasing machine");
 		setNumberOfMachinesAvailable(getNumberOfMachinesAvailable() +1);
 		if(!waitingCooksPool.isEmpty()){
-			//CookThread threadToRelease = waitingCooksPool.remove();
+			waitingCooksPool.remove();
 			if(resourceLock.l_queue()){
 				resourceLock.l_notify();
 			}

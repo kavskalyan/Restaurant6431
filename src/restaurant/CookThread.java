@@ -30,21 +30,25 @@ public class CookThread extends BasicThread {
 	
 	private boolean checkAndFectchMachinesToCook(boolean shouldPeek) throws InterruptedException{
 		boolean gotAtleastOneResource = false;
+		//System.out.println("Check and fetch");
 		for (Entry<MenuItemType, Integer> entry : order.entrySet()) {
 			MenuItemType key = entry.getKey();
 		    int value = entry.getValue();
 		    if(value <= 0) continue;
 		    MenuItem menuItem = getRestaurantManager().getMenuItemOfType(key);
+		   // System.out.println("Check and fetch:"+menuItem.getItemTypeAsString());
 		    int response = shouldPeek?menuItem.peekTheMachineAndCookIfAvailable():menuItem.fetchTheMachineAndCook(this) ;
+		    //System.out.println("Check and fetch:"+menuItem.getItemTypeAsString()+" :"+ Integer.toString(response));
 		    if(response != -1){
 		    	gotAResource(menuItem.getItemTypeAsString());
 		    	totalNumberOfResourcesRequired -= 1;
 		    	gotAtleastOneResource = true;
 		    	registerEventCallbackInTime(response,false);
 		    	order.replace(key, value - 1);
-		    	getRestaurantManager().decrementNumberOfThreadsToCompleteExecution();
+		    	//System.out.println("Check and fetch:"+menuItem.getItemTypeAsString()+" :"+ Integer.toString(getRestaurantManager().getNumberOfThreadsToCompleteExecution()));
+		    	//getRestaurantManager().decrementNumberOfThreadsToCompleteExecution();
 		    	l_wait();
-		    	getRestaurantManager().incrementNumberOfThreadsToCompleteExecution();
+		    	//getRestaurantManager().incrementNumberOfThreadsToCompleteExecution();
 		    	menuItem.releaseMachine();//Nongreedy approach
 		    }
 		    // ...
@@ -69,16 +73,17 @@ public class CookThread extends BasicThread {
 	}
 	@Override
 	public synchronized void run(){
-		System.out.println("Run called Cook Thread"+getThreadId());
-		while(true){
-			try {
+		//System.out.println("Run called Cook Thread"+getThreadId());
+		try {
+			while(true){
 				l_wait();
 				processingOrder();
-				getAssignedDiner().notify();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				getAssignedDiner().getLocalLock().l_notify();
 			}
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			System.out.println("Interrupted");
+			//e.printStackTrace();
 		}
 	}
 	private void processingOrder() throws InterruptedException{

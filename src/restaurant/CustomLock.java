@@ -15,8 +15,9 @@ public class CustomLock {
 	
 	public synchronized void l_notify(){
 		setWaitersCount(getWaitersCount()-1);
-		this.notify();
+		//System.out.println("Final Notify");
 		getRestaurantManager().incrementNumberOfThreadsToCompleteExecution();
+		this.notify();
 	}
 	public synchronized boolean l_queue(){
 		return getWaitersCount()>0;

@@ -32,7 +32,7 @@ public class DinerThread extends BasicThread {
 	@Override
 	public synchronized void run(){
 		try {
-				System.out.println("Run called Diner Thread"+getThreadId());
+				//System.out.println("Run called Diner Thread"+getThreadId());
 				registerEventCallbackInTime(getArrivalTime(),true);
 				l_wait();
 				dinerArrived();
@@ -41,12 +41,12 @@ public class DinerThread extends BasicThread {
 				CookThread cook = getRestaurantManager().getFreeCook();
 				cook.setAssignedDiner(this);
 				cook.setOrder(order);
-				synchronized(cook){
+				//synchronized(cook){
 				cook.l_notify();
 				l_wait();
 				orderReceived(cook);
 				eat();
-			}
+			//}
 			
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
@@ -74,6 +74,7 @@ public class DinerThread extends BasicThread {
 		getRestaurantManager().releaseTable(getTableNumberAllotted());
 		String finishString = "Diner "+getThreadId() + "finishes. Diner " +getThreadId() +" leaves the restaurant.";
 		getRestaurantManager().WriteToOutput(finishString);
+		getRestaurantManager().decrementNumberOfThreadsToCompleteExecution();
 	}
 
 	private boolean registerEventCallbackInTime(int time, boolean isAbsolute){

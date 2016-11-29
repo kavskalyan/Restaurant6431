@@ -8,7 +8,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -18,11 +17,11 @@ import java.util.Queue;
 
 public class Restaurant {
 	private int cooksTotalCount;
-	private int currentTime;
+	private Integer currentTime;
 	private int dinersTotalCount;
 	private final int totalTime = 120;
 	private int tablesTotalCount;
-	private int tablesFreeCount;
+	private Integer tablesFreeCount;
 	private int cooksFreeCount;
 	private Queue<CookThread> freeCooksPool;
 	private Queue<Integer> freeTablesPool;
@@ -31,31 +30,28 @@ public class Restaurant {
 	private Map<MenuItemType,MenuItem> menuItems;
 	private final String inputFileName = "/Users/kalyan/Documents/OS/Assignment4/project-sample-input-1.txt";
 	private final String outputFilename = "output.txt";
-	private PriorityQueue< RestaurantEventsByTime > eventsQueue;
+	private PriorityQueue< Integer > eventsQueue;
 	private Map< Integer, RestaurantEventsByTime> eventsMap;
-	private int numberOfThreadsToCompleteExecution;
-	private Object numberOfThreadsToCompleteExecutionlock;
+	private Integer numberOfThreadsToCompleteExecution;
 	private CustomLock tablesLock;
+	private CustomLock cooksLock;
 	private Object mainLoopLock;
 	private Object mapsQueuesLock;
+	private Object logLock;
 	public static void main(String[] args) {
 		
 		Restaurant dasda = new Restaurant();
 		dasda.Start();
+		//exit(0);
 	}
 	public Restaurant(){
 		
-		eventsQueue = new PriorityQueue<RestaurantEventsByTime>(0, new Comparator<RestaurantEventsByTime>(){
-			@Override
-			public int compare(RestaurantEventsByTime o1, RestaurantEventsByTime o2) {
-				// TODO Auto-generated method stub
-				return o1.getEventTime() - o2.getEventTime();
-			}
-		});
+		eventsQueue = new PriorityQueue<Integer>();
 		eventsMap = new HashMap<Integer, RestaurantEventsByTime>();
-		currentTime = 0;
-
-		numberOfThreadsToCompleteExecutionlock =  new Object();
+		this.currentTime = 0;
+		this.tablesFreeCount = 0;
+		//this.currentTime = new I
+		this.numberOfThreadsToCompleteExecution = 0;
 		dinerList = new LinkedList<DinerThread>();
 		cookList = new ArrayList<CookThread>();
 		freeCooksPool = new LinkedList<CookThread>();
@@ -64,24 +60,27 @@ public class Restaurant {
 		menuItems.put(MenuItemType.BURGER,new MenuItem(MenuItemType.BURGER, 5,1,this));
 		menuItems.put(MenuItemType.FRIES, new MenuItem(MenuItemType.FRIES,3, 1,this));
 		menuItems.put(MenuItemType.COKE,new MenuItem(MenuItemType.COKE,1, 1,this));
-		File file = new File(outputFilename);
+		//File file = new File(outputFilename);
 		tablesLock = new CustomLock(this);
+		cooksLock = new CustomLock(this);
 		mainLoopLock = new Object();
+		logLock = new Object();
 		mapsQueuesLock = new Object();
 		// if file doesnt exists, then create it
-		if (!file.exists()) {
-			try {
-				file.createNewFile();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
+//		if (!file.exists()) {
+//			try {
+//				file.createNewFile();
+//			} catch (IOException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//		}
 		ParseAndProcessInput();
 	}
 	public void Start(){
 		executeMainLoop();
-		WriteToOutput("The last diner leaves the restaurant");
+		System.exit(1);
+		
 	}
 	private void ParseAndProcessInput(){
 		try {
@@ -160,10 +159,14 @@ public class Restaurant {
 		this.tablesTotalCount = tablesTotalCount;
 	}
 	public int getTablesFreeCount() {
-		return tablesFreeCount;
+		synchronized(tablesFreeCount){
+			return tablesFreeCount;
+		}
 	}
 	public void setTablesFreeCount(int tablesFreeCount) {
-		this.tablesFreeCount = tablesFreeCount;
+		synchronized(this.tablesFreeCount){
+			this.tablesFreeCount = tablesFreeCount;
+		}
 	}
 	public int getCooksFreeCount() {
 		return cooksFreeCount;
@@ -181,64 +184,82 @@ public class Restaurant {
 		this.dinersTotalCount = dinersTotalCount;
 	}
 	public void addCookThreadToFreePool(CookThread o){
-		setCooksFreeCount(getCooksFreeCount()+1);
-		freeCooksPool.add(o);
+		synchronized(cooksLock){
+			setCooksFreeCount(getCooksFreeCount()+1);
+			freeCooksPool.add(o);
+		}
 	}
-	public synchronized CookThread getFreeCook() throws InterruptedException{
-		while(getCooksFreeCount() <= 0)
-			wait();
-	setCooksFreeCount(getCooksFreeCount()-1);
-	return freeCooksPool.remove();
+	public CookThread getFreeCook() throws InterruptedException{
+		synchronized(cooksLock){
+			while(getCooksFreeCount() <= 0)
+				cooksLock.l_wait();
+			setCooksFreeCount(getCooksFreeCount()-1);
+			return freeCooksPool.remove();
+		}
 	}
 	
-	public synchronized void releaseCook(CookThread thread){
-		freeCooksPool.add(thread);
-		setCooksFreeCount(getCooksFreeCount()+1);
+	public void releaseCook(CookThread thread){
+		synchronized(cooksLock){
+			freeCooksPool.add(thread);
+			setCooksFreeCount(getCooksFreeCount()+1);
+			if(cooksLock.l_queue()){
+				cooksLock.l_notify();
+			}
+		}
 	}
 	public boolean registerEventCallback(RestaurantEvent evt){
 		synchronized(mapsQueuesLock){
-		System.out.println("Event registering at"+ Integer.toString(evt.getEventTime()));
-		if(eventsMap.containsKey(evt.getEventTime())){
-			RestaurantEventsByTime eventListObj = eventsMap.get(evt.getEventTime());
-			eventListObj.addEvent(evt);
-		}
-		else{
-			RestaurantEventsByTime eventListObj = new RestaurantEventsByTime(evt.getEventTime());
-			eventListObj.addEvent(evt);
-			eventsQueue.add(eventListObj);
-		}
+		//System.out.println("Event registering at"+ Integer.toString(evt.getEventTime()));
+			if(eventsMap.containsKey(evt.getEventTime())){
+				RestaurantEventsByTime eventListObj = eventsMap.get(evt.getEventTime());
+				eventListObj.addEvent(evt);
+			}
+			else{
+				RestaurantEventsByTime eventListObj = new RestaurantEventsByTime(evt.getEventTime());
+				eventListObj.addEvent(evt);
+				eventsMap.put(evt.getEventTime(), eventListObj);
+				eventsQueue.add(evt.getEventTime());
+			}
 		}
 		return true;
 	}
-	public synchronized int getATable() throws InterruptedException{
+	public int getATable() throws InterruptedException{
 		while(getTablesFreeCount() <= 0){
-			decrementNumberOfThreadsToCompleteExecution();
+			System.out.println("Did not get a table"+ Integer.toString(getNumberOfThreadsToCompleteExecution()));
 			tablesLock.l_wait();
 		}
 		setTablesFreeCount(getTablesFreeCount() - 1);
-		int freeTabelNumber = freeTablesPool.remove();
-		return freeTabelNumber;
+		synchronized(freeTablesPool){
+			int freeTabelNumber = freeTablesPool.remove();
+			return freeTabelNumber;
+		}
 	}
-	public synchronized void releaseTable(int tableNumber){
-		freeTablesPool.add(tableNumber);
+	public void releaseTable(int tableNumber){
+		synchronized(freeTablesPool){
+			freeTablesPool.add(tableNumber);
+		}
 		setTablesFreeCount(getTablesFreeCount() + 1);
 		if(tablesLock.l_queue()){
-			incrementNumberOfThreadsToCompleteExecution();
 			tablesLock.l_notify();
 		}
 	}
-	public synchronized void WriteToOutput(String str){
-		try {
-			str = "00:" + Integer.toString(getCurrentTime()) + " - "+str;
-			FileWriter fw = new FileWriter(outputFilename);
-			BufferedWriter bw = new BufferedWriter(fw);
-			bw.write(str);
-			bw.close();
-
-			System.out.println(str);
-
-		} catch (IOException e) {
-			e.printStackTrace();
+	public void WriteToOutput(String str){
+		int currentTime = getCurrentTime();
+		synchronized(logLock){
+			try {
+				String str1 = String.format("%02d", (currentTime / 60));
+				String str2 = String.format("%02d", (currentTime % 60));
+				str = str1+ ":" + str2 + " - "+str +"\n";
+				FileWriter fw = new FileWriter(outputFilename,true);
+				BufferedWriter bw = new BufferedWriter(fw);
+				bw.write(str);
+				bw.close();
+	
+				System.out.println(str);
+	
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	public void executeMainLoop(){
@@ -252,20 +273,22 @@ public class Restaurant {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.out.println("Executng Mainloop:"+Boolean.toString(eventsQueue.isEmpty())+" With length:"+Integer.toString(eventsMap.size()));
+		//System.out.println("Executng Mainloop:"+Boolean.toString(eventsQueue.isEmpty())+" With length:"+Integer.toString(eventsMap.size()));
 		while(true){
 			RestaurantEventsByTime event;
 			synchronized(mapsQueuesLock){
 				if(eventsQueue.isEmpty()) break;
-				event =  eventsQueue.remove();
+				int eventTime =  eventsQueue.remove();
+				event = eventsMap.get(eventTime);
 			}
-			currentTime = event.getEventTime();
+			setCurrentTime(event.getEventTime());
 			setNumberOfThreadsToCompleteExecution(0);
-			System.out.println("Number of events at time:"+Integer.toString(currentTime)+" is"+Integer.toString(event.getEventList().size()));
+			//System.out.println("Number of events at time:"+Integer.toString(currentTime)+" is"+Integer.toString(event.getEventList().size()));
 			for(RestaurantEvent actualEvent : event.getEventList()){
-				synchronized(actualEvent.getThreadToWakeUp()){
+				//synchronized(actualEvent.getThreadToWakeUp().getLocalLock()){
+					//System.out.println("Notifying");
 					actualEvent.getThreadToWakeUp().l_notify();
-				}
+				//}
 			}
 			try {
 				synchronized(mainLoopLock){
@@ -280,34 +303,54 @@ public class Restaurant {
 			
 			
 		}
+		WriteToOutput("The last diner leaves the restaurant");
+		for(Thread thread: dinerList){
+			try {
+				thread.join();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		for(Thread thread: cookList){
+			thread.interrupt();
+			try {
+				thread.join();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		}
+		
 	}
 	public int getNumberOfThreadsToCompleteExecution() {
-		return numberOfThreadsToCompleteExecution;
+		synchronized(numberOfThreadsToCompleteExecution){
+			return numberOfThreadsToCompleteExecution;
+		}
 	}
 	public void setNumberOfThreadsToCompleteExecution(
 			int numberOfThreadsToCompleteExecution) {
-		synchronized(numberOfThreadsToCompleteExecutionlock){
+		synchronized(this.numberOfThreadsToCompleteExecution){
 			this.numberOfThreadsToCompleteExecution = numberOfThreadsToCompleteExecution;
 		}
 	}
 	public void decrementNumberOfThreadsToCompleteExecution(){
-		synchronized(numberOfThreadsToCompleteExecutionlock){
+		synchronized(numberOfThreadsToCompleteExecution){
 			this.numberOfThreadsToCompleteExecution  -= 1;
 		}
 		if(getNumberOfThreadsToCompleteExecution() == 0){
-		synchronized(mainLoopLock){
-			mainLoopLock.notify();
+			synchronized(mainLoopLock){
+				mainLoopLock.notify();
 		}
 		}
 	}
 	public void incrementNumberOfThreadsToCompleteExecution(){
-		synchronized(numberOfThreadsToCompleteExecutionlock){
+		synchronized(numberOfThreadsToCompleteExecution){
 			this.numberOfThreadsToCompleteExecution  += 1;
 		}
 	}
 	public MenuItem getMenuItemOfType(MenuItemType type){
-		synchronized(numberOfThreadsToCompleteExecutionlock){
 			return menuItems.get(type);
-		}
 	}
 }
