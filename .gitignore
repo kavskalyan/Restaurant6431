@@ -1,6 +1,12 @@
 
 *.class
 
-*.class
-
 bin/restaurant/BasicThread.class
+
+bin/restaurant/CookThread.class
+
+bin/restaurant/DinerThread.class
+
+bin/restaurant/MenuItem.class
+
+bin/restaurant/Restaurant.class

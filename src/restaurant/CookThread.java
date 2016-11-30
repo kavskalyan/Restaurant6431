@@ -36,16 +36,16 @@ public class CookThread extends BasicThread {
 		    int value = entry.getValue();
 		    if(value <= 0) continue;
 		    MenuItem menuItem = getRestaurantManager().getMenuItemOfType(key);
-		   // System.out.println("Check and fetch:"+menuItem.getItemTypeAsString());
+		    System.out.println("Check and fetch 1st:"+menuItem.getItemTypeAsString());
 		    int response = shouldPeek?menuItem.peekTheMachineAndCookIfAvailable():menuItem.fetchTheMachineAndCook(this) ;
-		    //System.out.println("Check and fetch:"+menuItem.getItemTypeAsString()+" :"+ Integer.toString(response));
+		    System.out.println("Check and fetch 2nd:"+menuItem.getItemTypeAsString()+" :"+ Integer.toString(response));
 		    if(response != -1){
 		    	gotAResource(menuItem.getItemTypeAsString());
 		    	totalNumberOfResourcesRequired -= 1;
 		    	gotAtleastOneResource = true;
 		    	registerEventCallbackInTime(response,false);
 		    	order.replace(key, value - 1);
-		    	//System.out.println("Check and fetch:"+menuItem.getItemTypeAsString()+" :"+ Integer.toString(getRestaurantManager().getNumberOfThreadsToCompleteExecution()));
+		    	System.out.println("Check and fetch 3rd:"+menuItem.getItemTypeAsString()+" :"+ Integer.toString(getRestaurantManager().getNumberOfThreadsToCompleteExecution()));
 		    	//getRestaurantManager().decrementNumberOfThreadsToCompleteExecution();
 		    	l_wait();
 		    	//getRestaurantManager().incrementNumberOfThreadsToCompleteExecution();

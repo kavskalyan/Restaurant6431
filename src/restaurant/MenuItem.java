@@ -6,11 +6,12 @@ import java.util.Queue;
 public class MenuItem{
 	private MenuItemType itemType;
 	private int timeRequiredForCompletion;
-	private int numberOfMachinesAvailable;
+	private Integer numberOfMachinesAvailable;
 	private int totalMachines;
 	private Queue<CookThread> waitingCooksPool;
 	private CustomLock resourceLock;
 	public MenuItem(MenuItemType type, int time, int onumberOfMachinesAvailable,Restaurant restaurantManager){
+		numberOfMachinesAvailable = 0;
 		resourceLock = new CustomLock(restaurantManager);
 		setItemType(type);
 		setTimeRequiredForCompletion(time);
@@ -31,15 +32,19 @@ public class MenuItem{
 		this.timeRequiredForCompletion = timeRequiredForCompletion;
 	}
 	public  int getNumberOfMachinesAvailable() {
-		return numberOfMachinesAvailable;
+		synchronized(this.numberOfMachinesAvailable){
+			return numberOfMachinesAvailable;
+		}
 	}
 	public void setNumberOfMachinesAvailable(int numberOfMachinesAvailable) {
-		this.numberOfMachinesAvailable = numberOfMachinesAvailable;
+		synchronized(this.numberOfMachinesAvailable){
+			this.numberOfMachinesAvailable = numberOfMachinesAvailable;
+		}
 	}
 	public boolean checkForResource(){
 		return getNumberOfMachinesAvailable() > 0;
 	}
-	public synchronized int fetchTheMachineAndCook(CookThread thread) throws InterruptedException{
+	public int fetchTheMachineAndCook(CookThread thread) throws InterruptedException{
 		while(getNumberOfMachinesAvailable() <= 0){
 			waitingCooksPool.add(thread);
 			resourceLock.l_wait();
@@ -47,7 +52,7 @@ public class MenuItem{
 		setNumberOfMachinesAvailable(getNumberOfMachinesAvailable() -1);
 		return getTimeRequiredForCompletion();
 	}
-	public synchronized int peekTheMachineAndCookIfAvailable() throws InterruptedException{
+	public int peekTheMachineAndCookIfAvailable() throws InterruptedException{
 		if(getNumberOfMachinesAvailable() <= 0){
 			return -1;
 		}

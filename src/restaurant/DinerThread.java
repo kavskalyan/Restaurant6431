@@ -30,7 +30,7 @@ public class DinerThread extends BasicThread {
 		order.put(MenuItemType.COKE,Integer.parseInt(orders[3]));
 	}
 	@Override
-	public synchronized void run(){
+	public void run(){
 		try {
 				//System.out.println("Run called Diner Thread"+getThreadId());
 				registerEventCallbackInTime(getArrivalTime(),true);

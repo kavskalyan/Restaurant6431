@@ -28,8 +28,8 @@ public class Restaurant {
 	private List<DinerThread> dinerList;
 	private List<CookThread> cookList;
 	private Map<MenuItemType,MenuItem> menuItems;
-	private final String inputFileName = "/Users/kalyan/Documents/OS/Assignment4/project-sample-input-1.txt";
-	private final String outputFilename = "output.txt";
+	public static String inputFileName = "/Users/kalyan/Documents/OS/Assignment4/project-sample-input-2.txt";
+	public static String outputFilename = "/Users/kalyan/Documents/OS/Assignment4/output-for-sample-input2.txt";
 	private PriorityQueue< Integer > eventsQueue;
 	private Map< Integer, RestaurantEventsByTime> eventsMap;
 	private Integer numberOfThreadsToCompleteExecution;
@@ -39,9 +39,22 @@ public class Restaurant {
 	private Object mapsQueuesLock;
 	private Object logLock;
 	public static void main(String[] args) {
-		
-		Restaurant dasda = new Restaurant();
-		dasda.Start();
+		if(args != null && args.length >0 &&args[0] != null && !args[0].equals("")){
+			Restaurant.inputFileName = args[0];
+			System.out.println("InputFile:"+args[0]);
+			File file = new File(Restaurant.inputFileName);
+			if (!file.exists()) {
+				System.out.println("Input file does not exist");
+				System.exit(1);
+			}
+			if(args.length >1 &&args[1] != null  && !args[1].equals("")){
+				Restaurant.outputFilename = args[1];
+				System.out.println("OutputFile:"+args[1]);
+			}
+		}
+		Restaurant restaurant = new Restaurant();
+		restaurant.ParseAndProcessInput();
+		restaurant.Start();
 		//exit(0);
 	}
 	public Restaurant(){
@@ -60,22 +73,22 @@ public class Restaurant {
 		menuItems.put(MenuItemType.BURGER,new MenuItem(MenuItemType.BURGER, 5,1,this));
 		menuItems.put(MenuItemType.FRIES, new MenuItem(MenuItemType.FRIES,3, 1,this));
 		menuItems.put(MenuItemType.COKE,new MenuItem(MenuItemType.COKE,1, 1,this));
-		//File file = new File(outputFilename);
 		tablesLock = new CustomLock(this);
 		cooksLock = new CustomLock(this);
 		mainLoopLock = new Object();
 		logLock = new Object();
 		mapsQueuesLock = new Object();
-		// if file doesnt exists, then create it
-//		if (!file.exists()) {
-//			try {
-//				file.createNewFile();
-//			} catch (IOException e) {
-//				// TODO Auto-generated catch block
-//				e.printStackTrace();
-//			}
-//		}
-		ParseAndProcessInput();
+		// Making sure the output file is empty
+		FileWriter fw;
+		try {
+			fw = new FileWriter(outputFilename);
+			BufferedWriter bw = new BufferedWriter(fw);
+			bw.write("");
+			bw.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	public void Start(){
 		executeMainLoop();
@@ -209,7 +222,7 @@ public class Restaurant {
 	}
 	public boolean registerEventCallback(RestaurantEvent evt){
 		synchronized(mapsQueuesLock){
-		//System.out.println("Event registering at"+ Integer.toString(evt.getEventTime()));
+		System.out.println("Event registering at"+ Integer.toString(evt.getEventTime()));
 			if(eventsMap.containsKey(evt.getEventTime())){
 				RestaurantEventsByTime eventListObj = eventsMap.get(evt.getEventTime());
 				eventListObj.addEvent(evt);
@@ -264,8 +277,8 @@ public class Restaurant {
 	}
 	public void executeMainLoop(){
 		try {
-			synchronized(mainLoopLock){
-				{
+			if(getNumberOfThreadsToCompleteExecution() > 0){
+				synchronized(mainLoopLock){
 					mainLoopLock.wait();
 				}
 			}
@@ -273,8 +286,14 @@ public class Restaurant {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		//System.out.println("Executng Mainloop:"+Boolean.toString(eventsQueue.isEmpty())+" With length:"+Integer.toString(eventsMap.size()));
+		System.out.println("Executng Mainloop:"+Boolean.toString(eventsQueue.isEmpty())+" With length:"+Integer.toString(eventsMap.size()));
 		while(true){
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
 			RestaurantEventsByTime event;
 			synchronized(mapsQueuesLock){
 				if(eventsQueue.isEmpty()) break;
@@ -283,18 +302,16 @@ public class Restaurant {
 			}
 			setCurrentTime(event.getEventTime());
 			setNumberOfThreadsToCompleteExecution(0);
-			//System.out.println("Number of events at time:"+Integer.toString(currentTime)+" is"+Integer.toString(event.getEventList().size()));
+			System.out.println("Number of events at time:"+Integer.toString(currentTime)+" is"+Integer.toString(event.getEventList().size()));
 			for(RestaurantEvent actualEvent : event.getEventList()){
 				//synchronized(actualEvent.getThreadToWakeUp().getLocalLock()){
-					//System.out.println("Notifying");
+					System.out.println("Notifying");
 					actualEvent.getThreadToWakeUp().l_notify();
 				//}
 			}
 			try {
 				synchronized(mainLoopLock){
-					{
-						mainLoopLock.wait();
-					}
+					mainLoopLock.wait();					
 				}
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
@@ -338,16 +355,18 @@ public class Restaurant {
 	public void decrementNumberOfThreadsToCompleteExecution(){
 		synchronized(numberOfThreadsToCompleteExecution){
 			this.numberOfThreadsToCompleteExecution  -= 1;
+			System.out.println("Decrementing:"+ Integer.toString(numberOfThreadsToCompleteExecution));
 		}
 		if(getNumberOfThreadsToCompleteExecution() == 0){
 			synchronized(mainLoopLock){
 				mainLoopLock.notify();
-		}
+			}
 		}
 	}
 	public void incrementNumberOfThreadsToCompleteExecution(){
 		synchronized(numberOfThreadsToCompleteExecution){
 			this.numberOfThreadsToCompleteExecution  += 1;
+			System.out.println("Incrementing:"+ Integer.toString(numberOfThreadsToCompleteExecution));
 		}
 	}
 	public MenuItem getMenuItemOfType(MenuItemType type){
